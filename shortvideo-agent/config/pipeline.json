@@ -1,0 +1,143 @@
+{
+  "project": {
+    "language": "zh-CN",
+    "out_dir": "runs",
+    "channel_seed": "my-channel-01",
+    "assets_dir": "assets",
+    "voice_id": "",
+    "avatar_id": "",
+    "require_assets": true
+  },
+  "platform": {
+    "name": "douyin",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "video_bitrate": "8M",
+    "audio_bitrate": "192k",
+    "audio_sample_rate": 44100,
+    "crf": 20,
+    "min_duration_s": 15,
+    "max_duration_s": 180
+  },
+  "steps": {
+    "topic": {
+      "enabled": true,
+      "provider": "offline"
+    },
+    "script": {
+      "enabled": true,
+      "provider": "offline",
+      "target_words": 260,
+      "segments": 5
+    },
+    "voice": {
+      "enabled": true,
+      "provider": "voice:voice-cosyvoice2",
+      "fallback": [],
+      "strict": true,
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "sapi_voice": "Microsoft Huihui Desktop",
+      "rate": 0,
+      "volume": 100,
+      "gap_ms": 220,
+      "breath_max_chars": 48,
+      "breath_min_chars": 12,
+      "sample_rate": 24000,
+      "chars_per_second": 4.6
+    },
+    "visuals": {
+      "enabled": true,
+      "provider": "ffmpeg_gradient"
+    },
+    "avatar": {
+      "enabled": true,
+      "provider": "avatar:avatar-dashscope-wan-s2v",
+      "zoom": 0.12,
+      "person_placeholder": false,
+      "fallback": [],
+      "strict": true,
+      "use_identity_overlay": false
+    },
+    "subtitles": {
+      "enabled": true,
+      "provider": "ass",
+      "font": "Microsoft YaHei",
+      "font_size": 76,
+      "keyword_size": 88,
+      "cover_size": 110,
+      "margin_v": 360,
+      "keyword_margin_v": 210,
+      "primary": "&H00FFFFFF",
+      "keyword_colour": "&H0000E5FF",
+      "outline_colour": "&H00202020",
+      "back_colour": "&H80000000",
+      "outline": 5,
+      "shadow": 2,
+      "max_chars_per_line": 13,
+      "bold": true,
+      "show_hook": true
+    },
+    "compose": {
+      "enabled": true,
+      "provider": "ffmpeg"
+    },
+    "metadata": {
+      "enabled": true,
+      "provider": "offline",
+      "title_count": 3,
+      "tag_count": 6
+    },
+    "publish": {
+      "enabled": true,
+      "provider": "package",
+      "platform": "douyin",
+      "copy_media": true
+    }
+  },
+  "providers": {
+    "llm": {
+      "base_url": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "api_key_env": "AUTOVID_LLM_API_KEY",
+      "timeout_s": 120,
+      "temperature": 0.8
+    },
+    "edge_tts": {
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "rate": "+0%"
+    },
+    "http_tts": {
+      "url": "",
+      "ref_audio": "",
+      "prompt_text": "",
+      "timeout_s": 300
+    },
+    "comfy": {
+      "url": "http://127.0.0.1:8188",
+      "workflow": "config/workflows/txt2img.json",
+      "timeout_s": 600
+    },
+    "openai_images": {
+      "base_url": "https://api.siliconflow.cn/v1",
+      "model": "black-forest-labs/FLUX.1-schnell",
+      "api_key_env": "AUTOVID_IMAGE_API_KEY",
+      "size": "768x1344",
+      "timeout_s": 300
+    },
+    "avatar_http": {
+      "submit_url": "",
+      "query_url": "",
+      "api_key_env": "AUTOVID_AVATAR_API_KEY",
+      "timeout_s": 1800,
+      "poll_interval_s": 10
+    },
+    "minimax_h3": {
+      "base_url": "https://api.minimaxi.com/v1",
+      "model": "MiniMax-Hailuo-H3",
+      "api_key_env": "AUTOVID_MINIMAX_API_KEY",
+      "timeout_s": 1800,
+      "poll_interval_s": 10
+    }
+  }
+}

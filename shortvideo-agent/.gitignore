@@ -1,0 +1,34 @@
+# 运行产物（视频很大，不要进 git）
+runs/
+.tmp/
+
+# 音色与形象资产（属于个人隐私数据，绝不进 git）
+assets/
+
+# 每次拍摄的场景照片（也是个人照片，绝不进 git）
+scenes/
+
+# 依赖/参考资料（临时下载的，不进 git）
+refsrc/
+vendor/
+pipwork/
+
+# 手工 vendor 的依赖（用 scripts/vendor_deps.py langgraph 重建）
+.pylibs/
+
+# 密钥
+config/secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

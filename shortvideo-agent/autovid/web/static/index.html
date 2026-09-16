@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AutoVid 短视频口播工作台</title>
+<style>
+  :root{
+    --bg:#0d0f16; --panel:#151926; --panel2:#1b2030; --line:#262c40;
+    --text:#e8ecf5; --dim:#8b95ad; --accent:#7c5cff; --accent2:#00e5ff;
+    --ok:#2ee6a8; --warn:#ffb020; --err:#ff5c7c; --cache:#5b8cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif;font-size:14px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+    border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:10}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.5px}
+  header h1 span{color:var(--accent);}
+  .ver{color:var(--dim);font-size:12px}
+  .pills{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .pill{font-size:11px;padding:3px 8px;border-radius:20px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--dim);white-space:nowrap}
+  .pill.on{border-color:var(--ok);color:var(--ok)}
+
+  main{display:grid;grid-template-columns:380px 1fr;gap:16px;padding:16px;align-items:start}
+  @media(max-width:960px){main{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--dim);font-weight:600;
+    text-transform:uppercase;letter-spacing:1px}
+  label{display:block;font-size:12px;color:var(--dim);margin:10px 0 5px}
+  input[type=text],input[type=password],textarea,select{width:100%;background:var(--panel2);color:var(--text);
+    border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-family:inherit;font-size:13px;outline:none}
+  input[type=text]:focus,input[type=password]:focus,textarea:focus,select:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:88px;line-height:1.6}
+  input[type=file]{width:100%;font-size:12px;color:var(--dim);margin-top:6px}
+  .hint{font-size:11px;color:var(--dim);margin-top:5px;line-height:1.6}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+  button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;
+    font-family:inherit;font-size:13px;font-weight:600;transition:.15s}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .primary{background:linear-gradient(135deg,var(--accent),#4b32d1);color:#fff;width:100%}
+  .ghost{background:var(--panel2);color:var(--dim);border:1px solid var(--line);width:100%}
+  .ghost:hover:not(:disabled){color:var(--text);border-color:var(--accent)}
+  .tiny{padding:5px 9px;font-size:11.5px;width:auto;font-weight:500}
+  .btns{display:grid;gap:8px;margin-top:14px}
+
+  /* 标签页 */
+  .tabs{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:5px}
+  .tab{flex:1;background:transparent;color:var(--dim);border-radius:8px;padding:8px 4px;font-size:12.5px}
+  .tab.active{background:var(--panel2);color:#fff}
+  .hidden{display:none !important}
+
+  /* 进度节点 */
+  .nodes{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}
+  .node{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 10px;
+    font-size:12px;display:flex;align-items:center;gap:8px;transition:.2s}
+  .node .idx{width:18px;height:18px;border-radius:50%;background:#2a3145;color:var(--dim);
+    display:grid;place-items:center;font-size:10px;flex:none}
+  .node .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .node.running{border-color:var(--accent);background:#1e1a3a;animation:pulse 1.4s infinite}
+  .node.ok{border-color:var(--ok)} .node.ok .idx{background:var(--ok);color:#04231a}
+  .node.cached{border-color:var(--cache)} .node.cached .idx{background:var(--cache);color:#04122e}
+  .node.failed{border-color:var(--err)} .node.failed .idx{background:var(--err);color:#2e0410}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(124,92,255,.4)}50%{box-shadow:0 0 0 6px rgba(124,92,255,0)}}
+
+  .log{background:#0a0c12;border:1px solid var(--line);border-radius:9px;padding:10px;
+    height:190px;overflow-y:auto;font-family:Consolas,"Courier New",monospace;font-size:12px;
+    line-height:1.65;white-space:pre-wrap;word-break:break-all}
+  .log .t{color:var(--dim)} .log .ok{color:var(--ok)} .log .err{color:var(--err)}
+  .log .hd{color:var(--accent2)} .log .warn{color:var(--warn)}
+  .runstatus{margin-top:10px;padding:10px 12px;border-radius:9px;background:var(--panel2);
+    color:var(--dim);font-size:13px;border:1px solid var(--line)}
+  .runstatus.running{color:#fff;border-color:var(--accent)}
+  .runstatus.ok{color:var(--ok);border-color:var(--ok)}
+  .runstatus.err{color:#ffc9d2;border-color:var(--err);background:#33130f}
+  .logdetails summary{cursor:pointer;color:var(--dim);font-size:12.5px;padding:4px 0 9px}
+  .logdetails[open] summary{color:var(--text)}
+
+  /* 结果 */
+  .result{display:grid;grid-template-columns:270px 1fr;gap:16px}
+  @media(max-width:760px){.result{grid-template-columns:1fr}}
+  video{width:100%;max-height:430px;border-radius:10px;background:#000;display:block}
+  .cover{width:100%;border-radius:10px;border:1px solid var(--line);display:block}
+  .meta-line{font-size:12px;color:var(--dim);margin:8px 0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:7px;
+    padding:6px 10px;font-size:12.5px;cursor:pointer;transition:.15s}
+  .chip:hover{border-color:var(--accent);color:#fff}
+  .tag{color:var(--accent2);cursor:default}
+  .tag.warn{color:var(--warn)}
+  .empty{color:var(--dim);font-size:12.5px;padding:20px 0;text-align:center;line-height:1.8}
+  .runitem{display:flex;gap:10px;align-items:center;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:12.5px}
+  .runitem:hover{background:var(--panel2)}
+  .runitem .rid{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .runitem .st{font-size:11px;color:var(--dim);flex:none}
+  .runitem .runops{display:flex;gap:5px;flex:none}
+  .runitem .runops button{padding:3px 7px;font-size:11px}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:#fff;padding:9px 18px;border-radius:20px;
+    font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99;max-width:80vw;text-align:center}
+  .toast.show{opacity:1}
+  .warnbanner{background:#3a2410;border:1px solid var(--warn);color:#ffd88a;
+    border-radius:9px;padding:10px 12px;font-size:12.5px;line-height:1.7;margin-bottom:10px}
+  .okbanner{background:#0f2e24;border:1px solid var(--ok);color:#8ff0cd;
+    border-radius:9px;padding:7px 11px;font-size:12px;margin-bottom:10px}
+  .warnbanner b,.okbanner b{color:#fff}
+  .warnbanner code{background:#00000045;padding:1px 5px;border-radius:4px;color:#ffe9b8}
+  .stack{display:grid;gap:16px}
+  .planbox{font-size:12px;color:var(--dim);line-height:1.9;max-height:140px;overflow-y:auto}
+  .planbox .run{color:var(--accent2)}
+
+  /* 资产库 */
+  .asset{display:flex;gap:10px;align-items:center;padding:9px;border-radius:9px;
+    border:1px solid var(--line);background:var(--panel2);margin-bottom:7px;cursor:pointer}
+  .asset:hover{border-color:var(--accent)}
+  .asset.active{border-color:var(--accent);background:#1e1a3a}
+  .asset .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px}
+  .asset .badge{font-size:10.5px;padding:2px 7px;border-radius:10px;flex:none}
+  .asset .asset-delete{flex:none;color:var(--err);border-color:#5a2b3a;background:#251820}
+  .asset .asset-delete:hover:not(:disabled){color:#fff;border-color:var(--err)}
+  .badge.ready{background:#0f3a2b;color:var(--ok)}
+  .badge.empty{background:#2a3145;color:var(--dim)}
+  .asset .thumb{width:34px;height:34px;border-radius:7px;object-fit:cover;flex:none;background:#0a0c12}
+  .enroll{border:1px dashed var(--line);border-radius:10px;padding:11px;margin-top:10px}
+  .promptbox{background:#0a0c12;border:1px solid var(--line);border-radius:8px;padding:10px;
+    font-size:12.5px;line-height:1.9;max-height:150px;overflow-y:auto;margin-top:5px;color:#cdd6e8}
+  .recrow{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);display:inline-block;
+    margin-right:6px;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .photogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:10px}
+  .photocard{position:relative;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#0a0c12}
+  .photocard img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+  .photocard .primarymark{position:absolute;top:4px;left:4px;font-size:10px;padding:1px 5px;
+    border-radius:6px;background:var(--accent);color:#fff}
+  .photocard .ops{display:flex;gap:3px;padding:3px}
+  .photocard .ops button{flex:1;padding:3px 2px;font-size:10.5px;border-radius:5px}
+
+  /* 运行方式切换 */
+  /* 闸门审批面板 */
+  .gatebox{background:#1a1630;border:1px solid var(--accent);border-radius:10px;
+    padding:12px;margin-bottom:10px}
+  .gatebox h3{margin:0 0 8px;font-size:13.5px;color:#fff}
+  .gatebox pre{background:#0a0c12;border:1px solid var(--line);border-radius:8px;
+    padding:10px;font-size:12px;line-height:1.7;max-height:240px;overflow:auto;
+    white-space:pre-wrap;word-break:break-word;margin:0;color:#cdd6e8}
+  .gatebtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .failbox{background:#33130f;border:1px solid var(--err);border-radius:9px;
+    padding:12px;font-size:12.5px;line-height:1.8;color:#ffc9d2;white-space:pre-wrap}
+  .failbox b{color:#fff}
+  .jumplinks{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .jumplinks button,.jumplinks a{padding:6px 12px;font-size:12px}
+  .action-link{display:inline-flex;align-items:center;justify-content:center;border-radius:8px;
+    font-family:inherit;font-weight:500;text-decoration:none;cursor:pointer;transition:.15s}
+  .action-link:hover{color:var(--text);border-color:var(--accent)}
+  /* 推荐提供商 */
+  .recbox{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:11px 12px;margin-bottom:9px}
+  .rechead{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+  .rechead b{font-size:13.5px;color:#fff}
+  .assetrow{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;margin-bottom:7px}
+  .assetrow .ops{display:flex;gap:6px;flex:none}
+  .assetrow .ops button{flex:none}
+
+  /* 设置：左侧按用途分组，右侧工作区保持不变 */
+  .settings-intro{margin:-3px 0 12px;line-height:1.65}
+  .provider-groups{display:grid;gap:10px}
+  .provider-group{border:1px solid var(--line);border-radius:11px;background:var(--panel2);overflow:hidden}
+  .provider-group-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+    padding:11px 11px 9px;border-bottom:1px solid var(--line)}
+  .provider-group-title{min-width:0}
+  .provider-group-title h3{margin:0;color:var(--text);font-size:13.5px;font-weight:650}
+  .provider-group-title p{margin:4px 0 0;color:var(--dim);font-size:11px;line-height:1.5}
+  .provider-count{display:inline-block;margin-left:5px;color:var(--dim);font-size:11px;font-weight:500}
+  .provider-group-actions{display:flex;gap:6px;flex:none}
+  .provider-group-actions button{min-height:32px;padding:5px 9px}
+  .provider-list{padding:7px}
+  .provider-item{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:9px;border-radius:8px;border:1px solid transparent}
+  .provider-item+.provider-item{margin-top:4px}
+  .provider-item:hover{border-color:var(--line);background:var(--panel)}
+  .provider-item-main{min-width:0;flex:1}
+  .provider-item-name{display:block;min-width:0}
+  .provider-item-name b{display:block;font-size:12.5px;line-height:1.45;white-space:normal}
+  .provider-item-name .badge{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:10px;
+    font-size:10.5px;line-height:1;vertical-align:top}
+  .provider-item-meta{font-size:10.5px;color:var(--dim);line-height:1.45;margin-top:4px;white-space:normal}
+  .provider-key-link{display:inline-block;margin-top:5px;color:var(--warn);font-size:11px;text-decoration:none}
+  .provider-key-link:hover{text-decoration:underline;color:#ffd37a}
+  .provider-item .ops{display:grid;grid-template-columns:1fr 1fr;gap:4px;flex:none}
+  .provider-item .ops button{padding:5px 7px;width:100%}
+  .provider-item .ops [data-test]{grid-column:1 / -1}
+  .provider-test-status{font-size:10.5px;line-height:1.5;margin-top:5px}
+  .provider-test-status.success{color:var(--ok)}
+  .provider-test-status.warning{color:var(--warn)}
+  .provider-test-status.error{color:var(--err)}
+  .provider-empty{padding:15px 10px;color:var(--dim);font-size:11.5px;text-align:center}
+  .provider-editor{margin-top:10px;border:1px solid var(--accent);border-radius:11px;
+    background:var(--panel2);padding:11px}
+  .provider-editor-head{display:flex;align-items:flex-start;justify-content:space-between;
+    gap:12px;margin-bottom:8px}
+  .provider-editor-head h3{margin:0;font-size:13.5px;color:var(--text)}
+  .provider-editor-head p{margin:4px 0 0;font-size:11px;color:var(--dim);line-height:1.5}
+  .provider-editor-head button{flex:none;padding:5px 9px;min-height:32px}
+  .provider-editor label{margin-top:9px}
+  .provider-advanced{margin-top:9px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .provider-advanced summary{cursor:pointer;padding:9px 0;color:var(--dim);font-size:11.5px}
+  .provider-advanced[open] summary{color:var(--text)}
+  .provider-advanced-body{padding-bottom:9px}
+  @media(max-width:460px){
+    .provider-group-head{display:block}
+    .provider-group-actions{margin-top:9px}
+    .provider-item{align-items:flex-start}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Auto<span>Vid</span> 短视频口播工作台</h1>
+  <span class="ver" id="ver"></span>
+  <div class="pills" id="pills"></div>
+</header>
+
+<main>
+  <!-- 左栏 -->
+  <div class="stack">
+    <div class="tabs">
+      <button class="tab active" data-tab="create">创作</button>
+      <button class="tab" data-tab="voices">音色库</button>
+      <button class="tab" data-tab="avatars">形象库</button>
+      <button class="tab" data-tab="settings">设置</button>
+    </div>
+
+    <!-- 创作 -->
+    <div class="card panel" id="panel-create">
+      <h2>创作参数</h2>
+
+      <div class="hint" id="modeHint"></div>
+
+      <div id="flowOpts" class="hidden">
+        <label>人物场景照</label>
+        <input type="file" id="sceneFile" accept="image/*" capture="environment">
+        <div id="scenePreview" class="hint">
+          上传正面、腰部以上、双手入镜的竖版照片。
+        </div>
+
+        <label>人工审核闸门</label>
+        <div class="chips" id="gatePicker"></div>
+        <div class="hint">勾选后会暂停确认。</div>
+      </div>
+
+      <label>选题</label>
+      <input type="text" id="topic" placeholder="例：为什么你越努力越焦虑">
+
+      <label>自有文案（可选，留空则用 AI 生成）</label>
+      <textarea id="script" placeholder="粘贴你写好的口播稿，会自动切段。"></textarea>
+
+      <div id="row_script">
+        <label>文案来源</label>
+        <select id="p_script"></select>
+      </div>
+      <div id="providerWarn"></div>
+      <div class="hidden" style="margin:8px 0 2px" id="row_recommend">
+        <button class="ghost tiny" id="btnRecommended" style="width:100%">
+          使用推荐配置
+        </button>
+      </div>
+
+      <label>音色</label>
+      <select id="p_voice_asset"></select>
+      <div id="row_voice">
+        <label>语音引擎</label>
+        <select id="p_voice"></select>
+      </div>
+      <div style="margin:6px 0 2px">
+        <button class="ghost tiny" id="btnVoicePreview" style="width:100%">
+          试听当前音色
+        </button>
+      </div>
+      <div id="voicePreviewBox"></div>
+      <div class="hint" id="voiceHint"></div>
+
+      <label>形象</label>
+      <select id="p_avatar_asset"></select>
+      <div id="row_avatar">
+        <label>数字人引擎</label>
+        <select id="p_avatar"></select>
+      </div>
+      <div class="hint" id="avatarHint"></div>
+
+      <div id="visualsRow" class="hidden">
+        <label>背景图（已废弃）</label>
+        <select id="p_visuals"></select>
+      </div>
+
+      <div id="preflight"></div>
+
+      <div class="btns">
+        <button class="primary" id="btn-run">开始生成</button>
+        <button class="ghost" id="btn-plan">只看运行计划</button>
+      </div>
+    </div>
+
+    <!-- 音色库 -->
+    <div class="card panel hidden" id="panel-voices">
+      <h2>音色库</h2>
+      <div id="voiceList"><div class="empty">还没有音色</div></div>
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="newVoiceName" placeholder="音色名字，如：我本人">
+        <button class="ghost tiny" id="btnNewVoice" style="flex:none">新建</button>
+      </div>
+
+      <div id="voiceEnroll" class="enroll hidden">
+        <div style="font-size:12.5px;font-weight:600" id="voiceEnrollName"></div>
+        <label>请按下面的文字朗读（约 40~60 秒）</label>
+        <div class="promptbox" id="voicePrompt"></div>
+        <div class="hint" id="voiceTips"></div>
+
+        <div class="recrow">
+          <button class="primary tiny" id="btnRec">● 开始录音</button>
+          <button class="ghost tiny" id="btnStop" disabled>■ 停止并保存</button>
+          <span class="ver" id="recTime">00:00</span>
+        </div>
+        <div class="hint" id="recNote"></div>
+
+        <label>或者上传已录好的音频</label>
+        <input type="file" id="voiceFile" accept="audio/*">
+        <div class="hint" id="voiceUploadStatus"></div>
+
+        <div id="voicePlayback" class="hidden" style="margin-top:10px">
+          <label>已保存的参考音频（试听）</label>
+          <audio id="voiceAudio" controls style="width:100%"></audio>
+        </div>
+      </div>
+    </div>
+
+    <!-- 形象库 -->
+    <div class="card panel hidden" id="panel-avatars">
+      <h2>形象库</h2>
+      <div id="avatarList"><div class="empty">还没有形象</div></div>
+
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input type="text" id="newAvatarName" placeholder="形象名字，如：我本人">
+        <button class="ghost tiny" id="btnNewAvatar" style="flex:none">新建</button>
+      </div>
+
+      <div id="avatarEnroll" class="enroll hidden">
+        <div style="font-size:12.5px;font-weight:600" id="avatarEnrollName"></div>
+        <div class="hint" id="photoTips"></div>
+        <input type="file" id="avatarFiles" accept="image/*" multiple>
+        <div class="hint" id="avatarUploadStatus"></div>
+        <div class="photogrid" id="avatarGrid"></div>
+      </div>
+    </div>
+
+    <div class="card panel hidden" id="panel-settings">
+      <h2>提供商设置</h2>
+      <div class="hint settings-intro">按用途管理接口。这里只负责连接服务，生成参数仍在“创作”页选择。</div>
+
+      <div class="provider-groups">
+        <section class="provider-group" aria-labelledby="voiceProviderTitle">
+          <div class="provider-group-head">
+            <div class="provider-group-title">
+              <h3 id="voiceProviderTitle">语音克隆 <span class="provider-count" id="voiceProviderCount">0 家</span></h3>
+              <p>生成你的声音</p>
+            </div>
+            <div class="provider-group-actions">
+              <button class="ghost tiny" id="btnRecVoice">推荐 / 申请 Key</button>
+              <button class="ghost tiny" id="btnAddVoice">添加</button>
+            </div>
+          </div>
+          <div class="provider-list" id="providerListVoice">
+            <div class="provider-empty">尚未配置语音提供商</div>
+          </div>
+        </section>
+
+        <section class="provider-group" aria-labelledby="avatarProviderTitle">
+          <div class="provider-group-head">
+            <div class="provider-group-title">
+              <h3 id="avatarProviderTitle">数字人视频 <span class="provider-count" id="avatarProviderCount">0 家</span></h3>
+              <p>生成口型、表情和动作</p>
+            </div>
+            <div class="provider-group-actions">
+              <button class="ghost tiny" id="btnRecVideo">推荐 / 申请 Key</button>
+              <button class="ghost tiny" id="btnAddAvatar">添加</button>
+            </div>
+          </div>
+          <div class="provider-list" id="providerListAvatar">
+            <div class="provider-empty">尚未配置数字人提供商</div>
+          </div>
+        </section>
+      </div>
+
+      <div class="provider-editor hidden" id="providerEditor">
+        <div class="provider-editor-head">
+          <div>
+            <h3 id="providerEditorTitle">添加提供商</h3>
+            <p id="providerEditorSub">选择接口模板并填写密钥</p>
+          </div>
+          <button class="ghost tiny" id="btnCloseProvider" aria-label="关闭提供商编辑表单">关闭</button>
+        </div>
+
+        <input type="hidden" id="sp_kind" value="voice">
+        <label for="sp_preset">接口模板</label>
+        <select id="sp_preset"></select>
+        <div class="hint" id="sp_preset_hint"></div>
+
+        <label for="sp_label">供应商名称</label>
+        <input type="text" id="sp_label" placeholder="选择供应商后自动填写" readonly>
+
+        <label for="sp_api_key">API Key</label>
+        <input type="password" id="sp_api_key" placeholder="粘贴密钥">
+        <div class="hint">仅保存在本机 config/secrets.json，不会提交到 Git。</div>
+
+        <div id="sp_extra_fields"></div>
+
+        <details class="provider-advanced" id="spAdvanced">
+          <summary>高级配置：接口地址与模型</summary>
+          <div class="provider-advanced-body">
+            <label for="sp_base_url">接口地址</label>
+            <input type="text" id="sp_base_url" placeholder="选择供应商后自动填写">
+            <div class="hint" id="sp_base_url_hint"></div>
+            <label for="sp_model">模型 ID</label>
+            <select id="sp_model"></select>
+            <input type="text" id="sp_model_custom" class="hidden" placeholder="填写自定义模型 ID">
+          </div>
+        </details>
+
+        <div class="btns" style="margin-top:10px">
+          <button class="primary" id="btnSaveProvider">保存提供商</button>
+          <button class="ghost" id="btnClearProvider">取消</button>
+        </div>
+        <div class="hint" id="sp_status" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>历史运行</h2>
+      <div id="runs"><div class="empty">加载中…</div></div>
+    </div>
+  </div>
+
+  <!-- 右栏 -->
+  <div class="stack">
+    <div class="card">
+      <h2>生成进度 <span id="runid" class="ver"></span></h2>
+      <div class="nodes" id="nodes"></div>
+      <div class="runstatus" id="runStatus" role="status" aria-live="polite">等待开始</div>
+    </div>
+
+    <div class="card">
+      <details class="logdetails" id="logDetails">
+        <summary>详细日志（排错时查看）</summary>
+        <div class="log" id="log"><span class="t">等待开始…</span></div>
+      </details>
+      <div id="planbox" class="planbox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card hidden" id="gateCard">
+      <h2>⏸ 等你确认</h2>
+      <div id="gateBody"></div>
+      <div class="gatebtns">
+        <button class="primary" id="btnApprove">通过，继续</button>
+        <button class="ghost" id="btnReject">打回，重做这一步</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="recCard">
+      <h2 id="recTitle">推荐提供商</h2>
+      <div class="hint" id="recIntro"></div>
+      <div id="recList"></div>
+      <div class="btns" style="margin-top:10px">
+        <button class="ghost" id="btnRecClose">关闭</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>产出结果</h2>
+      <div id="result"><div class="empty">还没有结果。<br>点左边「开始生成」跑一条。</div></div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let STEPS = [], OPTIONS = {}, CURRENT = {}, ASSETS = {}, RUN_ID = null, source = null;
+// 只在“回看历史”时切换标签清空右栏；正在生成的任务不能因为看了设置就断开进度。
+let VIEWING_HISTORY = false;
+let enrollVoiceId = null, enrollAvatarId = null;
+/* 流程模式相关 */
+let MODE = 'pipeline';
+let FLOW_NODES = [], FLOW_GATES = [], SELECTED_GATES = new Set();
+let PENDING_GATE = null;      // {run_id, gate, payload}
+/* provider 可用性（由服务端按当前环境算出来） */
+let OPTION_INFO = {}, RECOMMENDED = {}, PROJECT = {}, PROVIDER_LABELS = {};
+/* 本次场景照片：{name, path, url, width, height} */
+let SCENE = null;
+
+function activeNodes(){
+  return MODE === 'flow' ? FLOW_NODES : STEPS;
+}
+
+function optionLabel(key, name){
+  const star = RECOMMENDED['steps.' + key + '.provider'] === name ? '  ⭐推荐' : '';
+  return `${engineLabel(name)}${star}`;
+}
+
+function renderProviderSelects(){
+  for (const [key, el] of [['script','p_script'],['voice','p_voice'],
+                           ['visuals','p_visuals'],['avatar','p_avatar']]){
+    const select = $(el);
+    const previous = select.value;
+    // 创作页只放已经可用的引擎。未配置项统一留在「设置」里，避免用户在这里
+    // 看见一个不能选、也不知道去哪配置的“未配置”。
+    let names = (OPTIONS[key] || []).filter(name =>
+      ((OPTION_INFO[key] || {})[name] || {}).available === true);
+    // 语音只留能克隆音色的，数字人只留会动嘴的。
+    // 注意必须用 isCloneEngine/isMouthEngine 判断，而不是「在不在硬编码列表里」——
+    // 用户在设置页配的条目叫 voice:xxx / avatar:xxx，写死列表会把它们过滤掉，
+    // 表现就是「配置好了却选不到」（实测踩过两次）。
+    if (key === 'voice'){
+      const keep = names.filter(isCloneEngine);
+      if (keep.length) names = keep;
+    } else if (key === 'avatar'){
+      const keep = names.filter(isMouthEngine);
+      if (keep.length) names = keep;
+    }
+    if (!names.length){
+      select.innerHTML = '<option value="">请先到设置中配置</option>';
+      select.disabled = true;
+      continue;
+    }
+    select.disabled = false;
+    const selected = names.includes(previous) ? previous
+      : names.includes(CURRENT[key]) ? CURRENT[key] : names[0];
+    select.innerHTML = names.map(o =>
+      `<option value="${esc(o)}"${o===selected?' selected':''}>${esc(optionLabel(key, o))}</option>`
+    ).join('');
+  }
+}
+
+/* ------------------------------------------------------------ 试音 */
+async function voicePreview(){
+  const box = $('voicePreviewBox');
+  const voiceId = $('p_voice_asset').value;
+  const provider = $('p_voice').value;
+  if (!voiceId){ box.innerHTML = '<div class="warnbanner" style="margin-top:8px">先去「音色库」录一段参考音频</div>'; return; }
+  $('btnVoicePreview').disabled = true;
+  box.innerHTML = '<div class="hint" style="margin-top:8px">正在合成试听…（本地引擎首次要准备音色，可能 30 秒左右）</div>';
+  try {
+    const r = await fetch('/api/voice/preview', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({voice_id: voiceId, provider})}).then(x => x.json());
+    if (r.error){ box.innerHTML = `<div class="failbox" style="margin-top:8px">${esc(r.error)}</div>`; return; }
+    if (!r.ok){
+      box.innerHTML = `<div class="failbox" style="margin-top:8px"><b>这个引擎没合成出声音</b><br>${esc(r.error||'')}</div>`;
+      return;
+    }
+    const audible = r.audible
+      ? `<b style="color:var(--ok)">有声音</b>（音量 ${r.rms}）`
+      : `<b style="color:var(--err)">是静音！</b>（音量 ${r.rms}）`;
+    const cloned = r.cloned
+      ? `<b style="color:var(--ok)">用的是你的音色「${esc(r.voice_name)}」</b>`
+      : `<b style="color:var(--warn)">没有用你的音色</b>`;
+    box.innerHTML = `
+      <div class="${r.audible ? 'okbanner' : 'warnbanner'}" style="margin-top:8px">
+        ${audible}　${cloned}<br>
+        <span class="hint">引擎 ${esc(r.provider)}　时长 ${r.duration_s}s</span>
+        <audio controls autoplay style="width:100%;margin-top:8px"
+               src="${r.url}"></audio>
+      </div>`;
+  } catch (err) {
+    box.innerHTML = `<div class="failbox" style="margin-top:8px">请求失败：${esc(err.message)}</div>`;
+  } finally {
+    $('btnVoicePreview').disabled = false;
+  }
+}
+
+function renderProviderWarn(){
+  // 具体问题放在对应音色/形象提示和底部「还缺」里，避免重复。
+  $('providerWarn').innerHTML = '';
+}
+
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function esc(s){ return String(s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function mediaUrl(runId, p){ return `/media?run_id=${encodeURIComponent(runId)}&p=${encodeURIComponent(p)}`; }
+function q(o){ return Object.entries(o).map(([k,v])=>`${k}=${encodeURIComponent(v??'')}`).join('&'); }
+
+/* ================================================================ 标签页 */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.onclick = () => {
+    if (VIEWING_HISTORY) resetHistoryView();
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    // 面板名从 DOM 推导，不要硬编码列表 ——
+    // 之前写死 ['create','voices','avatars']，加了「设置」标签页后漏改，
+    // 点设置会把三个面板全隐藏、设置面板自己又没显示，左栏直接空掉。
+    document.querySelectorAll('.panel').forEach(p =>
+      p.classList.toggle('hidden', p.id !== 'panel-' + tab.dataset.tab));
+    if (tab.dataset.tab === 'settings') loadSettings();
+    // 设置页保存 Key 后，切回创作页必须重新读取当前 provider 状态，
+    // 否则旧页面会继续显示“尚未配置”，与设置页的绿色“已配置”相矛盾。
+    if (tab.dataset.tab === 'create') refreshBootstrap().catch(() => {});
+  };
+});
+
+/* ================================================================ 初始化 */
+async function boot(){
+  const data = await (await fetch('/api/bootstrap')).json();
+  STEPS = data.steps; OPTIONS = data.options; CURRENT = data.current;
+  $('ver').textContent = 'v' + data.version;
+
+  OPTION_INFO = data.option_info || {};
+  RECOMMENDED = data.recommended || {};
+  PROJECT = data.project || {};
+  PROVIDER_LABELS = data.provider_labels || {};
+  const voiceReady = usableEngines('voice').length > 0;
+  const avatarReady = usableEngines('avatar').length > 0;
+  $('pills').innerHTML = voiceReady && avatarReady
+    ? '<span class="pill on">工作流就绪</span>'
+    : '<span class="pill">需要配置</span>';
+  renderProviderSelects();
+  simplifyProviders();
+
+  applyAssets(data.assets || {});
+  renderRuns(data.runs || []);
+  FLOW_NODES = (data.flow && data.flow.nodes) || [];
+  FLOW_GATES = (data.flow && data.flow.gates) || [];
+  renderGatePicker();
+  setMode();
+  simplifyProviders();
+  loadSettings();
+  if (data.active_run) attach(data.active_run);
+}
+
+/* ================================================================ 资产 */
+function applyAssets(summary){
+  ASSETS = summary || {};
+  renderVoiceList();
+  renderAvatarList();
+  renderAssetSelects();
+  $('voicePrompt').textContent = ASSETS.voice_prompt || '';
+  $('voiceTips').innerHTML = (ASSETS.voice_tips || []).map(t => '· ' + esc(t)).join('<br>');
+  $('photoTips').innerHTML = (ASSETS.photo_tips || []).map(t => '· ' + esc(t)).join('<br>');
+}
+
+function renderAssetSelects(){
+  const voices = ASSETS.voices || [];
+  const avatars = ASSETS.avatars || [];
+  const readyVoices = voices.filter(v => v.status !== 'empty' && v.ref_audio);
+  const readyAvatars = avatars.filter(a => (a.photos||[]).length > 0);
+  const wantVoice = PROJECT.voice_id || '';
+  const wantAvatar = PROJECT.avatar_id || '';
+  $('p_voice_asset').innerHTML = readyVoices.length
+    ? readyVoices.map(v => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('')
+    : `<option value="">暂无可用音色</option>` +
+      voices.map(v => `<option disabled>${esc(v.name)}（缺参考音频）</option>`).join('') +
+      `<option value="__configure_voice__">去音色库配置</option>`;
+  $('p_avatar_asset').innerHTML = readyAvatars.length
+    ? readyAvatars.map(a =>
+        `<option value="${esc(a.id)}">${esc(a.name)}（${a.photos.length} 张）</option>`).join('')
+    : `<option value="">暂无可用形象</option>` +
+      avatars.map(a => `<option disabled>${esc(a.name)}（无照片）</option>`).join('') +
+      `<option value="__configure_avatar__">去形象库配置</option>`;
+  // 默认选中配置里存的音色/形象 —— 不然每次都要手动重选，还容易忘了选形象
+  if (wantVoice && readyVoices.some(v => v.id === wantVoice)) $('p_voice_asset').value = wantVoice;
+  else if (readyVoices.length) $('p_voice_asset').value = readyVoices[0].id;
+  if (wantAvatar && readyAvatars.some(a => a.id === wantAvatar)) $('p_avatar_asset').value = wantAvatar;
+  else if (readyAvatars.length) $('p_avatar_asset').value = readyAvatars[0].id;
+  updateHints();
+}
+
+function badge(asset){
+  const ready = asset.status === 'ready' || asset.status === 'trained';
+  return `<span class="badge ${ready?'ready':'empty'}">${
+    asset.status === 'trained' ? '已训练' : ready ? '就绪' : '待采集'}</span>`;
+}
+
+function renderVoiceList(){
+  const list = ASSETS.voices || [];
+  if (!list.length){ $('voiceList').innerHTML = '<div class="empty">还没有音色<br>点下面「新建」开始采集</div>'; return; }
+  $('voiceList').innerHTML = list.map(v => `
+    <div class="asset ${v.id===enrollVoiceId?'active':''}" data-voice="${esc(v.id)}">
+      <span class="nm">${esc(v.name)}</span>
+      <span class="ver">${v.duration_s ? v.duration_s + 's' : ''}</span>
+      ${badge(v)}
+      <button class="ghost tiny asset-delete" data-delete-voice="${esc(v.id)}" aria-label="删除音色 ${esc(v.name)}">删除</button>
+    </div>`).join('');
+  $('voiceList').querySelectorAll('[data-voice]').forEach(el =>
+    el.onclick = () => openVoiceEnroll(el.dataset.voice));
+  $('voiceList').querySelectorAll('[data-delete-voice]').forEach(btn => btn.onclick = async ev => {
+    ev.stopPropagation();
+    const voice = list.find(v => v.id === btn.dataset.deleteVoice);
+    if (voice) await deleteVoiceAsset(voice);
+  });
+}
+
+function renderAvatarList(){
+  const list = ASSETS.avatars || [];
+  if (!list.length){ $('avatarList').innerHTML = '<div class="empty">还没有形象<br>点下面「新建」开始采集</div>'; return; }
+  $('avatarList').innerHTML = list.map(a => {
+    const thumb = a.portrait
+      ? `<img class="thumb" src="/api/assets/avatar/photo?${q({avatar_id:a.id, filename:a.portrait})}" alt="">`
+      : `<div class="thumb"></div>`;
+    return `<div class="asset ${a.id===enrollAvatarId?'active':''}" data-avatar="${esc(a.id)}">
+      ${thumb}<span class="nm">${esc(a.name)}</span>
+      <span class="ver">${(a.photos||[]).length} 张</span>${badge(a)}
+      <button class="ghost tiny asset-delete" data-delete-avatar="${esc(a.id)}" aria-label="删除形象 ${esc(a.name)}">删除</button></div>`;
+  }).join('');
+  $('avatarList').querySelectorAll('[data-avatar]').forEach(el =>
+    el.onclick = () => openAvatarEnroll(el.dataset.avatar));
+  $('avatarList').querySelectorAll('[data-delete-avatar]').forEach(btn => btn.onclick = async ev => {
+    ev.stopPropagation();
+    const avatar = list.find(a => a.id === btn.dataset.deleteAvatar);
+    if (avatar) await deleteAvatarAsset(avatar);
+  });
+}
+
+async function deleteVoiceAsset(voice){
+  if (!confirm(`确定删除音色“${voice.name}”及其参考录音吗？删除后无法恢复。`)) return;
+  const r = await fetch('/api/assets/voice?' + q({voice_id:voice.id}), {method:'DELETE'}).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  if (enrollVoiceId === voice.id){
+    enrollVoiceId = null;
+    $('voiceEnroll').classList.add('hidden');
+    $('voiceAudio').removeAttribute('src');
+    $('voiceAudio').load();
+  }
+  applyAssets(r.summary);
+  toast('音色已删除');
+}
+
+async function deleteAvatarAsset(avatar){
+  if (!confirm(`确定删除形象“${avatar.name}”及其全部照片吗？删除后无法恢复。`)) return;
+  const r = await fetch('/api/assets/avatar?' + q({avatar_id:avatar.id}), {method:'DELETE'}).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  if (enrollAvatarId === avatar.id){
+    enrollAvatarId = null;
+    $('avatarEnroll').classList.add('hidden');
+    $('avatarGrid').innerHTML = '';
+  }
+  applyAssets(r.summary);
+  toast('形象已删除');
+}
+
+/* ---------------------------------------------------------- 音色采集 */
+function openVoiceEnroll(voiceId){
+  enrollVoiceId = voiceId;
+  const v = (ASSETS.voices||[]).find(x => x.id === voiceId);
+  renderVoiceList();
+  if (!v) return;
+  $('voiceEnroll').classList.remove('hidden');
+  $('voiceEnrollName').innerHTML = `${esc(v.name)} <span class="ver">${esc(v.id)}</span>
+    <button class="ghost tiny" style="float:right" id="btnDelVoice">删除音色</button>`;
+  $('voicePlayback').classList.toggle('hidden', !v.ref_audio);
+  if (v.ref_audio){
+    $('voiceAudio').src = `/api/assets/voice/audio?${q({voice_id:v.id})}&t=${Date.now()}`;
+  }
+  $('voiceUploadStatus').textContent = v.ref_audio
+    ? `当前样本：${v.duration_s}s　${v.note||''}` : '还没有参考音频，录音或上传后即可使用。';
+  $('btnDelVoice').onclick = async (ev) => {
+    ev.stopPropagation();
+    await deleteVoiceAsset(v);
+  };
+}
+
+$('btnNewVoice').onclick = async () => {
+  const name = $('newVoiceName').value.trim();
+  if (!name) return toast('先给音色起个名字');
+  const r = await fetch('/api/assets/voice', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})}).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  $('newVoiceName').value = '';
+  applyAssets(r.summary);
+  openVoiceEnroll(r.voice.id);
+  toast('音色已创建，请朗读下方文字并录音');
+};
+
+async function uploadVoiceBlob(blob, filename){
+  if (!enrollVoiceId) return toast('请先选择或新建一个音色');
+  $('voiceUploadStatus').textContent = '正在上传并体检…';
+  const r = await fetch('/api/assets/voice/audio?' + q({voice_id: enrollVoiceId, filename}),
+    {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: blob}).then(x=>x.json());
+  if (r.error){ $('voiceUploadStatus').textContent = '上传失败'; return toast(r.error); }
+  applyAssets(r.summary);
+  openVoiceEnroll(enrollVoiceId);
+  toast('音色样本已保存');
+}
+
+$('voiceFile').onchange = (e) => {
+  const f = e.target.files[0];
+  if (f) uploadVoiceBlob(f, f.name);
+  e.target.value = '';
+};
+
+/* 浏览器直接录音（localhost 属于安全上下文，getUserMedia 可用） */
+let recorder = null, recChunks = [], recTimer = null, recStart = 0;
+$('btnRec').onclick = async () => {
+  if (!enrollVoiceId) return toast('请先选择或新建一个音色');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {channelCount:1, echoCancellation:false, noiseSuppression:false, autoGainControl:false}});
+    recChunks = [];
+    const prefer = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+    const mime = prefer.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m));
+    recorder = new MediaRecorder(stream, mime ? {mimeType: mime} : undefined);
+    recorder.ondataavailable = ev => { if (ev.data && ev.data.size) recChunks.push(ev.data); };
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const type = (recorder && recorder.mimeType) || 'audio/webm';
+      const ext = type.includes('ogg') ? 'ogg' : type.includes('mp4') ? 'm4a' : 'webm';
+      await uploadVoiceBlob(new Blob(recChunks, {type}), 'recording.' + ext);
+    };
+    recorder.start();
+    recStart = Date.now();
+    $('btnRec').disabled = true; $('btnStop').disabled = false;
+    $('recNote').innerHTML = '<span class="dot"></span>录音中…请自然地朗读上面的文字';
+    recTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - recStart) / 1000);
+      $('recTime').textContent = String(Math.floor(s/60)).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+    }, 250);
+  } catch (err) {
+    toast('无法访问麦克风：' + err.message + '（可改用下面的上传）');
+  }
+};
+$('btnStop').onclick = () => {
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+  clearInterval(recTimer);
+  $('btnRec').disabled = false; $('btnStop').disabled = true;
+  $('recNote').textContent = '录音结束，正在保存…';
+};
+
+/* ---------------------------------------------------------- 形象采集 */
+function openAvatarEnroll(avatarId){
+  enrollAvatarId = avatarId;
+  const a = (ASSETS.avatars||[]).find(x => x.id === avatarId);
+  renderAvatarList();
+  if (!a) return;
+  $('avatarEnroll').classList.remove('hidden');
+  $('avatarEnrollName').innerHTML = `${esc(a.name)} <span class="ver">${esc(a.id)}</span>
+    <button class="ghost tiny" style="float:right" id="btnDelAvatar">删除形象</button>`;
+  $('avatarUploadStatus').textContent = a.photos.length
+    ? `已上传 ${a.photos.length} 张，主图：${a.portrait}（建议 3~5 张）`
+    : '还没有照片。选 3~5 张正脸照上传。';
+  $('avatarGrid').innerHTML = a.photos.map(p => `
+    <div class="photocard">
+      ${p === a.portrait ? '<span class="primarymark">主图</span>' : ''}
+      <img src="/api/assets/avatar/photo?${q({avatar_id:a.id, filename:p})}" alt="">
+      <div class="ops">
+        ${p === a.portrait ? '' : `<button class="ghost" data-primary="${esc(p)}">设为主图</button>`}
+        <button class="ghost" data-del="${esc(p)}">删除</button>
+      </div>
+    </div>`).join('');
+  $('avatarGrid').querySelectorAll('[data-primary]').forEach(btn => btn.onclick = async () => {
+    const r = await fetch('/api/assets/avatar/primary', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({avatar_id: a.id, filename: btn.dataset.primary})}).then(x=>x.json());
+    if (r.error) return toast(r.error);
+    applyAssets(r.summary); openAvatarEnroll(a.id); toast('已设为主图');
+  });
+  $('avatarGrid').querySelectorAll('[data-del]').forEach(btn => btn.onclick = async () => {
+    const r = await fetch('/api/assets/avatar/photo?' + q({avatar_id:a.id, filename:btn.dataset.del}),
+      {method:'DELETE'}).then(x=>x.json());
+    if (r.error) return toast(r.error);
+    applyAssets(r.summary); openAvatarEnroll(a.id);
+  });
+  $('btnDelAvatar').onclick = async (ev) => {
+    ev.stopPropagation();
+    await deleteAvatarAsset(a);
+  };
+}
+
+$('btnNewAvatar').onclick = async () => {
+  const name = $('newAvatarName').value.trim();
+  if (!name) return toast('先给形象起个名字');
+  const r = await fetch('/api/assets/avatar', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name})}).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  $('newAvatarName').value = '';
+  applyAssets(r.summary); openAvatarEnroll(r.avatar.id);
+  toast('形象已创建，请上传照片');
+};
+
+$('avatarFiles').onchange = async (e) => {
+  if (!enrollAvatarId) return toast('请先选择或新建一个形象');
+  const files = [...e.target.files];
+  e.target.value = '';
+  if (!files.length) return;
+  let first = (ASSETS.avatars||[]).find(x => x.id === enrollAvatarId)?.photos.length === 0;
+  for (let i = 0; i < files.length; i++){
+    $('avatarUploadStatus').textContent = `上传中 ${i+1}/${files.length}：${files[i].name}`;
+    const r = await fetch('/api/assets/avatar/photo?' +
+        q({avatar_id: enrollAvatarId, filename: files[i].name, primary: (first && i===0) ? '1' : ''}),
+      {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: files[i]}).then(x=>x.json());
+    if (r.error){ toast(files[i].name + '：' + r.error); }
+    else applyAssets(r.summary);
+  }
+  openAvatarEnroll(enrollAvatarId);
+  toast('照片上传完成');
+};
+
+/* ---------------------------------------------------------- 生成前检查 */
+/* 数字人口播的前提就是「要克隆的音色」+「形象参考图」。
+   缺了就直接禁用生成按钮，而不是让它跑一半才失败。 */
+function preflightProblems(){
+  const out = [];
+  const vid = $('p_voice_asset').value, aid = $('p_avatar_asset').value;
+  const v = (ASSETS.voices||[]).find(x => x.id === vid);
+  const a = (ASSETS.avatars||[]).find(x => x.id === aid);
+  if (!vid) out.push('没有选择音色 —— 数字人口播必须指定要克隆的音色');
+  else if (!v || !v.ref_audio) out.push(`音色「${v ? v.name : vid}」还没有参考音频，先去音色库录音或上传`);
+  if (!aid) out.push('没有选择形象 —— 数字人口播必须指定形象参考图');
+  else if (!a || !(a.photos||[]).length) out.push(`形象「${a ? a.name : aid}」还没有上传照片，先去形象库上传`);
+  const voiceEngine = $('p_voice').value;
+  if (!voiceEngine) out.push('还没有可用的语音引擎，请先到设置里配置');
+  const voiceInfo = (OPTION_INFO.voice||{})[voiceEngine] || {};
+  if (voiceEngine && voiceInfo.available !== true) out.push(`语音接口未配置：${voiceInfo.detail||engineLabel(voiceEngine)}`);
+  const avatarEngine = $('p_avatar').value;
+  if (!avatarEngine) out.push('还没有可用的数字人引擎，请先到设置里配置');
+  const avatarInfo = (OPTION_INFO.avatar||{})[avatarEngine] || {};
+  if (avatarEngine && avatarInfo.available !== true) out.push(`数字人接口未配置：${avatarInfo.detail||engineLabel(avatarEngine)}`);
+  // 流程模式的画面来自本次场景照片，缺了就没画面
+  if (MODE === 'flow' && !SCENE){
+    out.push('还没选「本次场景照片」—— 画面与背景来自这张带人物的照片');
+  }
+  return out;
+}
+function renderPreflight(){
+  const problems = preflightProblems();
+  const box = $('preflight');
+  if (MODE === 'flow'){
+    box.innerHTML = problems.length
+      ? '<div class="warnbanner" role="alert" style="margin-top:12px"><b>还缺：</b><br>· '
+        + problems.map(esc).join('<br>· ') + '</div>'
+      : '';
+    $('btn-run').disabled = problems.length > 0;
+    return;
+  }
+  if (!problems.length){
+    box.innerHTML = '';
+    $('btn-run').disabled = false;
+  } else {
+    box.innerHTML = '<div class="warnbanner" role="alert" style="margin-top:12px">'
+      + '<b>还缺：</b><br>· '
+      + problems.map(esc).join('<br>· ') + '</div>';
+    $('btn-run').disabled = true;
+  }
+}
+
+/* ---------------------------------------------------------- 提示语 */
+// 内置的「能克隆音色」引擎。其余（edge_native/sapi/edge/silent）只是链路兜底，
+// 不摆到用户面前 —— 要的是「用我自己的声音」，一堆不会克隆的选项只会让人犹豫。
+const CLONE_ENGINES = ['local_qwen_tts', 'cloud_tts', 'http_json'];
+// 内置的「会动嘴」数字人引擎（still 只做静态推镜，不算）
+const MOUTH_ENGINES = ['local_wav2lip', 'comfy', 'http_job', 'minimax_h3'];
+
+// 用户在「设置」里配的付费 API 叫 voice:xxx / avatar:xxx。
+// 判断必须带上它们，否则会把用户自己配的引擎过滤掉（实测踩过两次）。
+function isCloneEngine(name){
+  return CLONE_ENGINES.includes(name) || String(name).startsWith('voice:');
+}
+function isMouthEngine(name){
+  return MOUTH_ENGINES.includes(name) || String(name).startsWith('avatar:');
+}
+
+/** 引擎显示名：让「本地 / 你配的付费 API」一眼能分出来。 */
+function engineLabel(name){
+  const custom = (PROVIDER_LABELS || {})[name];
+  if (custom) return `${custom}（付费 API）`;
+  const builtin = {
+    local_qwen_tts: '本地 Qwen3-TTS（免费，本机跑）',
+    local_wav2lip: '本地 Wav2Lip（免费，本机跑）',
+    cloud_tts: '通用云端 TTS',
+    http_json: '自建 TTS 服务',
+    comfy: 'ComfyUI 数字人',
+    http_job: '云端数字人（提交+轮询）',
+    minimax_h3: 'MiniMax 海螺',
+    still: '静态推镜（不动嘴）',
+    offline: '内置模板（无需 Key）',
+    openai_compat: '大模型 API',
+    ffmpeg_gradient: '内置渐变背景',
+    openai_images: '云端出图',
+  };
+  return builtin[name] || name;
+}
+
+/** 某环节「现在就能用，而且真的满足需求」的引擎。 */
+function usableEngines(key){
+  return (OPTIONS[key] || []).filter(n => {
+    const info = (OPTION_INFO[key] || {})[n] || {};
+    if (info.available !== true) return false;
+    if (key === 'voice') return isCloneEngine(n);
+    if (key === 'avatar') return isMouthEngine(n);
+    return true;
+  });
+}
+
+/**
+ * 只有一个可用引擎时，把下拉框整行藏掉 —— 用户要的是「能用」，不是「选」。
+ * 引擎名会写进下面的提示语里，所以不会失去信息。
+ */
+function simplifyProviders(){
+  let hidden = 0;
+  for (const [key, row] of [['script','row_script'], ['voice','row_voice'],
+                            ['avatar','row_avatar']]){
+    const usable = usableEngines(key);
+    const el = $('p_' + key);
+    // 只隐藏“当前选项本来就是唯一可用项”的下拉框，绝不替用户改 provider。
+    // 尤其不能因为云 API 缺 Key，就自动切到本地模型。
+    const single = usable.length === 1 && el.value === usable[0];
+    const box = $(row);
+    if (box) box.classList.toggle('hidden', single);
+    if (single) hidden += 1;
+  }
+  // 推荐按钮会把失败的云接口偷偷换成本地方案；严格模式下始终隐藏。
+  const rec = $('row_recommend');
+  if (rec) rec.classList.add('hidden');
+}
+
+function updateHints(){
+  const vid = $('p_voice_asset').value;
+  const engine = $('p_voice').value;
+  const vname = (ASSETS.voices||[]).find(x => x.id === vid)?.name;
+  const info = (OPTION_INFO.voice || {})[engine] || {};
+  const ready = info.available === true;
+
+  if (!vid){
+    $('voiceHint').textContent = '请先选择音色。';
+  } else if (ready){
+    $('voiceHint').innerHTML = `<b style="color:var(--ok)">${esc(vname)}</b> · ${esc(engineLabel(engine))}`;
+  } else {
+    $('voiceHint').innerHTML = `<span style="color:var(--warn)">${esc(engineLabel(engine))} 尚未配置</span>`;
+  }
+  const aid = $('p_avatar_asset').value;
+  const aname = (ASSETS.avatars||[]).find(x => x.id === aid)?.name;
+  const aengine = $('p_avatar').value;
+  if (!aid){
+    $('avatarHint').textContent = '请先选择形象。';
+  } else {
+    const aReady = ((OPTION_INFO.avatar||{})[aengine]||{}).available === true;
+    $('avatarHint').innerHTML = aReady
+      ? `<b style="color:var(--ok)">${esc(aname)}</b> · ${esc(engineLabel(aengine))}`
+      : `<span style="color:var(--warn)">${esc(engineLabel(aengine))} 尚未配置</span>`;
+  }
+  renderPreflight();
+  renderProviderWarn();
+}
+$('p_voice').onchange = updateHints;
+$('p_voice_asset').onchange = () => {
+  if ($('p_voice_asset').value === '__configure_voice__'){
+    $('p_voice_asset').value = '';
+    jumpTo('voices');
+  }
+  updateHints();
+};
+$('p_avatar_asset').onchange = () => {
+  if ($('p_avatar_asset').value === '__configure_avatar__'){
+    $('p_avatar_asset').value = '';
+    jumpTo('avatars');
+  }
+  updateHints();
+};
+
+/* ============== 流程进度 ============== */
+function renderNodes(status){
+  $('nodes').innerHTML = activeNodes().map(s => {
+    const st = status[s.name] || '';
+    const cls = ['ok','cached','failed','running'].includes(st) ? st : '';
+    return `<div class="node ${cls}" id="node-${s.name}">
+      <div class="idx">${st==='ok'?'✓':st==='cached'?'=':st==='failed'?'✕':s.index}</div>
+      <div class="nm" title="${esc(s.title)}">${esc(s.title)}</div></div>`;
+  }).join('');
+}
+
+/* ================================================================ 流程模式 */
+function setMode(){
+  // 只用 LangGraph 那套工作流。以前这里有个二选一，
+  // 用户明确说过要 LangGraph —— 摆两个按钮只会让人犹豫，去掉。
+  MODE = 'flow';
+  $('flowOpts').classList.remove('hidden');
+  // 流程模式下画面来自场景照片，没有「背景图」这回事
+  $('visualsRow').classList.add('hidden');
+  $('modeHint').innerHTML =
+    '自动完成配音、人物动作、字幕和成片。';
+  renderNodes({});
+  $('planbox').innerHTML = '';
+}
+
+/* ---------------------------------------------------------- 场景照片 */
+$('sceneFile').onchange = async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  $('scenePreview').textContent = '上传中…';
+  try {
+    const r = await fetch('/api/scene?filename=' + encodeURIComponent(file.name),
+      {method:'POST', headers:{'Content-Type':'application/octet-stream'}, body: file})
+      .then(x => x.json());
+    if (r.error){ SCENE = null; $('scenePreview').innerHTML =
+      '<span style="color:var(--err)">' + esc(r.error) + '</span>'; updateHints(); return; }
+    SCENE = r;
+    $('scenePreview').innerHTML =
+      `<img src="${r.url}" style="width:100%;border-radius:8px;margin-top:6px;border:1px solid var(--line)">`
+      + `<div class="hint">${esc(r.name)} · ${r.width}×${r.height}</div>`;
+    updateHints();
+    toast('场景照片已就绪');
+  } catch (err) {
+    SCENE = null;
+    $('scenePreview').innerHTML = '<span style="color:var(--err)">上传失败：' + esc(err.message) + '</span>';
+    updateHints();
+  }
+};
+
+function renderGatePicker(){
+  $('gatePicker').innerHTML = FLOW_GATES.map(g => {
+    const on = SELECTED_GATES.has(g.name);
+    return `<div class="chip ${on?'gatesel':''}" data-gate="${esc(g.name)}"
+      style="${on?'border-color:var(--accent);color:#fff':''}">
+      ${on?'☑':'☐'} ${esc(g.title)}</div>`;
+  }).join('');
+  $('gatePicker').querySelectorAll('[data-gate]').forEach(el => el.onclick = () => {
+    const name = el.dataset.gate;
+    if (SELECTED_GATES.has(name)) SELECTED_GATES.delete(name); else SELECTED_GATES.add(name);
+    renderGatePicker();
+  });
+}
+
+function showGate(runId, gate, payload){
+  PENDING_GATE = {run_id: runId, gate, payload};
+  const title = (payload && payload.title) || gate || '人工闸门';
+  let body = '';
+  if (gate === 'script' && payload){
+    body += `<div class="hint">字数 ${payload.word_count ?? '?'} 　钩子：${esc(payload.hook||'')}</div>`;
+    body += '<pre>' + (payload.segments||[]).map((t,i)=>`${i+1}. ${esc(t)}`).join('\n') + '</pre>';
+  } else if (gate === 'voice' && payload){
+    body += `<div class="hint">引擎 ${esc(payload.provider||'?')}　` +
+      `时长 ${payload.duration_s ?? '?'}s　` +
+      (payload.cloned ? '<b style="color:var(--ok)">已用你的音色</b>'
+                      : '<b style="color:var(--warn)">未使用你的音色</b>') + '</div>';
+    if (payload.wav) body += `<audio controls style="width:100%;margin-top:8px"
+      src="/media?run_id=${encodeURIComponent(runId)}&p=${encodeURIComponent(
+        String(payload.wav).split('\\\\').pop().split('/').slice(-2).join('/'))}"></audio>`;
+  } else {
+    body = '<pre>' + esc(JSON.stringify(payload||{}, null, 2)) + '</pre>';
+  }
+  $('gateBody').innerHTML = `<div class="gatebox"><h3>${esc(title)}</h3>${body}</div>`;
+  $('gateCard').classList.remove('hidden');
+  $('gateCard').scrollIntoView({behavior:'smooth', block:'center'});
+}
+function hideGate(){ PENDING_GATE = null; $('gateCard').classList.add('hidden'); }
+
+async function decide(action){
+  if (!PENDING_GATE) return;
+  const {run_id, gate} = PENDING_GATE;
+  hideGate();
+  $('btn-run').disabled = true;
+  logLine(`【${gate}】${action === 'reject' ? '打回重做' : '通过'}`, action === 'reject' ? 'warn' : 'ok');
+  const r = await fetch('/api/flow/resume', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({run_id, decision:{action}, gates:[...SELECTED_GATES]})}).then(x=>x.json());
+  if (r.error){ toast(r.error); $('btn-run').disabled = false; return; }
+  attach(r.run_id);
+}
+
+function showFailure(message, errors, title='生成失败', runId='', result={}){
+  const list = (errors||[]).map(e => '· ' + esc(e)).join('<br>');
+  const detail = [message, ...(errors||[])].join('\n');
+  const actions = [];
+  if (/音色没准备|参考音频|音色.*不存在/.test(detail))
+    actions.push(`<button class="ghost" onclick="jumpTo('voices')">去音色库</button>`);
+  if (/形象没准备|形象.*照片|形象.*不存在/.test(detail))
+    actions.push(`<button class="ghost" onclick="jumpTo('avatars')">去形象库</button>`);
+  if (/接口|API|Key|认证|额度|未配置/.test(detail))
+    actions.push(`<button class="ghost" onclick="jumpTo('settings')">去设置</button>`);
+  if (runId && result && result.has_partial)
+    actions.push(`<a href="/fragments?run_id=${encodeURIComponent(runId)}" download>` +
+      `<button class="ghost">下载已完成片段（${result.partial_count||''}）</button></a>`);
+  if (runId && result && result.can_resume)
+    actions.push(`<button class="primary" onclick="continueRun('${esc(runId)}')">从失败处继续</button>`);
+  $('result').innerHTML = `<div class="failbox" role="alert"><b>${esc(title)}</b><br><br>` +
+    (list || esc(message||'')) +
+    (actions.length ? `<div class="jumplinks">${actions.join('')}</div>` : '') +
+    `</div>`;
+  hideGate();
+}
+async function continueRun(runId){
+  if (!runId) return;
+  setRunStatus('正在从失败处恢复…', 'running');
+  $('result').innerHTML = '<div class="empty">正在读取检查点并继续…</div>';
+  const r = await fetch('/api/flow/continue', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({run_id:runId})
+  }).then(x=>x.json());
+  if (r.error){
+    setRunStatus(briefError(r.error), 'err');
+    toast(r.error);
+    await openRun(runId);
+    return;
+  }
+  attach(r.run_id);
+}
+function jumpTo(tab){
+  const btn = document.querySelector(`.tab[data-tab="${tab}"]`);
+  if (btn) btn.click();
+}
+function logLine(text, cls){
+  const box = $('log');
+  if (box.dataset.clean !== '1'){ box.innerHTML = ''; box.dataset.clean = '1'; }
+  const div = document.createElement('div');
+  if (cls) div.className = cls;
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+function briefError(value){
+  return String(value||'未知错误').split(/\r?\n/).map(x=>x.trim()).find(Boolean) || '未知错误';
+}
+function setRunStatus(text, cls=''){
+  const box = $('runStatus');
+  box.textContent = text;
+  box.className = 'runstatus' + (cls ? ' ' + cls : '');
+}
+
+function resetHistoryView(){
+  VIEWING_HISTORY = false;
+  RUN_ID = null;
+  $('runid').textContent = '';
+  renderNodes({});
+  setRunStatus('等待开始');
+  $('log').dataset.clean = '0';
+  $('log').innerHTML = '<span class="t">等待开始…</span>';
+  $('planbox').innerHTML = '';
+  $('result').innerHTML = '<div class="empty">还没有结果。<br>点左边「开始生成」跑一条。</div>';
+  hideGate();
+}
+function overrides(){
+  return {
+    'steps.script.provider':   $('p_script').value,
+    'steps.voice.provider':    $('p_voice').value,
+    'steps.visuals.provider':  $('p_visuals').value,
+    'steps.avatar.provider':   $('p_avatar').value,
+    'project.voice_id':        $('p_voice_asset').value,
+    'project.avatar_id':       $('p_avatar_asset').value,
+  };
+}
+function payload(){
+  return { topic: $('topic').value, script_text: $('script').value, overrides: overrides() };
+}
+
+async function doPlan(){
+  const r = await fetch('/api/plan', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(payload())}).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  if (r.problems && r.problems.length){
+    $('planbox').innerHTML = '<div style="color:var(--warn)"><b>⚠ 前置检查未通过：</b><br>· '
+      + r.problems.map(esc).join('<br>· ') + '</div>';
+    renderPreflight();
+    return;
+  }
+  renderNodes(Object.fromEntries(r.steps.map(s => [s.name, s.action==='skip'?'cached':''])));
+  $('planbox').innerHTML = r.steps.map(s =>
+    `<div class="${s.action}">${s.index}. ${esc(s.title)} — ${s.action==='run'?'将执行':'复用已有产物'}（${esc(s.reason)}）</div>`).join('');
+  toast('计划已生成（未执行）');
+}
+
+async function doRun(){
+  VIEWING_HISTORY = false;
+  $('btn-run').disabled = true; $('btn-plan').disabled = true;
+  hideGate();
+  $('log').dataset.clean = '0';
+  $('log').innerHTML = '<span class="t">正在启动…</span>';
+  $('result').innerHTML = '<div class="empty">生成中…</div>';
+  setRunStatus('正在启动…', 'running');
+  $('planbox').innerHTML = '';
+  renderNodes({});
+  const body = payload();
+  const endpoint = MODE === 'flow' ? '/api/flow/run' : '/api/run';
+  if (MODE === 'flow'){
+    body.gates = [...SELECTED_GATES];
+    body.scene_photo = SCENE ? SCENE.path : '';
+  }
+  const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)}).then(x=>x.json());
+  if (r.error){
+    toast(r.error); $('btn-plan').disabled = false; renderPreflight();
+    setRunStatus(briefError(r.error), 'err');
+    $('log').innerHTML = '<span class="err">'+esc(r.error).replace(/\n/g,'<br>')+'</span>'; return;
+  }
+  attach(r.run_id);
+}
+
+function attach(runId){
+  if (source) source.close();
+  VIEWING_HISTORY = false;
+  RUN_ID = runId;
+  $('runid').textContent = runId;
+  $('btn-run').disabled = true; $('btn-plan').disabled = true;
+  source = new EventSource('/api/stream?run_id=' + encodeURIComponent(runId));
+  source.onmessage = e => handle(JSON.parse(e.data));
+  source.onerror = () => { source.close(); source = null; };
+}
+
+function handle(ev){
+  if (ev.type === 'run_start'){
+    setRunStatus('正在准备…', 'running');
+    logLine('开始运行 ' + ev.run_id, 'hd');
+  } else if (ev.type === 'plan'){
+    renderNodes(Object.fromEntries(ev.steps.map(s => [s.name, s.action==='skip'?'cached':''])));
+    logLine(`运行计划：${ev.steps.filter(s=>s.action==='run').length} 步待执行 / ${ev.steps.filter(s=>s.action==='skip').length} 步复用`, 'hd');
+  } else if (ev.type === 'step_start'){
+    const n = $('node-'+ev.step); if (n) n.className = 'node running';
+    setRunStatus(`${ev.title}处理中…`, 'running');
+    logLine(`[${ev.index}/${ev.total}] ${ev.title}`, 'hd');
+  } else if (ev.type === 'step_log'){
+    const cls = /✗|失败/.test(ev.line) ? 'err' : /⚠/.test(ev.line) ? 'warn'
+              : /✓|完成/.test(ev.line) ? 'ok' : '';
+    logLine(ev.line, cls);
+  } else if (ev.type === 'step_done'){
+    const n = $('node-'+ev.step);
+    if (n) n.className = 'node ' + (ev.status==='ok'?'ok':ev.status==='cached'?'cached':'failed');
+    if (ev.status === 'cached') logLine(`  = ${ev.step} 复用已有产物`, 't');
+    else if (ev.status === 'ok') logLine(`  ✓ ${ev.step} 完成（${ev.duration_s ?? '?'}s）`, 'ok');
+    else {
+      const title = (activeNodes().find(s => s.name === ev.step)||{}).title || ev.step;
+      setRunStatus(`${title}失败：${briefError(ev.error)}`, 'err');
+      logLine(`  ✕ ${ev.step} 失败：${briefError(ev.error)}`, 'err');
+    }
+  } else if (ev.type === 'preflight'){
+    if (ev.errors && ev.errors.length){
+      logLine('【前置判断】未通过', 'err');
+      ev.errors.forEach(e => logLine('  ✗ ' + e, 'err'));
+    } else {
+      logLine('【前置判断】全部通过', 'ok');
+      Object.entries(ev.info || {}).forEach(([k, v]) => logLine(`  ✓ ${k}：${v}`, 'ok'));
+    }
+    (ev.warnings || []).forEach(w => logLine('  ⚠ ' + w, 'warn'));
+  } else if (ev.type === 'gate'){
+    logLine(`⏸ 停在「${ev.title}」，等你确认…`, 'hd');
+  } else if (ev.type === 'run_done'){
+    if (source){ source.close(); source = null; }
+    $('btn-plan').disabled = false;
+    renderPreflight();
+    const flowStatus = ev.flow_status;
+
+    if (flowStatus === 'interrupted'){
+      setRunStatus(`等待确认：${ev.gate||''}`);
+      logLine('⏸ 图已暂停，等待你的决定', 'hd');
+      showGate(ev.run_id, ev.gate, ev.payload);
+      if (ev.result) renderResult(ev.result, ev.run_id);
+      loadRuns();
+      return;
+    }
+    if (flowStatus === 'failed'){
+      const message = ev.failure || ev.error || '生成失败';
+      const preflight = ev.failed_step === 'preflight'
+        || (!ev.failed_step && Array.isArray(ev.errors) && ev.errors.length > 0);
+      setRunStatus(briefError(message), 'err');
+      logLine('✕ ' + briefError(message), 'err');
+      showFailure(message, ev.errors, preflight ? '开始前检查未通过' : '生成失败',
+                  ev.run_id, ev.result || {});
+      loadRuns();
+      return;
+    }
+    setRunStatus(ev.ok ? '生成完成' : briefError(ev.error), ev.ok ? 'ok' : 'err');
+    logLine(ev.ok ? '全部完成 ✓' : ('运行结束但有失败：' + (ev.error||'')), ev.ok?'ok':'err');
+    if (ev.result) renderResult(ev.result, ev.run_id);
+    if (ev.ok) toast('生成完成');
+    loadRuns();
+  }
+}
+
+/* ================================================================ 结果 */
+function renderResult(r, runId){
+  runId = runId || r.run_id;
+  if (!r || !r.video){
+    $('result').innerHTML = '<div class="empty">这次运行没有产出成片，请查看日志。</div>';
+    return;
+  }
+  const v = mediaUrl(runId, r.video);
+  const cover = r.cover ? mediaUrl(runId, r.cover) : '';
+  const audio = r.audio || {};
+
+  let banner;
+  if (!audio.real){
+    banner = `<div class="warnbanner"><b>⚠ 这条成片是静音的。</b>
+      语音 provider = <code>${esc(audio.provider||'未知')}</code> ${esc(audio.note||'')}<br>
+      修法：把「语音引擎」切到 <b>edge_native</b>，再点开始生成。</div>`;
+  } else if (audio.cloned){
+    banner = `<div class="okbanner">语音：<b>已用你的音色「${esc(audio.voice_name)}」</b>（${esc(audio.provider)}）</div>`;
+  } else if (audio.voice_name){
+    banner = `<div class="warnbanner">语音：<b>没有用你的音色</b>「${esc(audio.voice_name)}」，
+      当前引擎 ${esc(audio.provider)} 不支持克隆，本次用的是内置音色。</div>`;
+  } else {
+    banner = `<div class="okbanner">语音：${esc(audio.provider)}　${esc(audio.note||'')}</div>`;
+  }
+  if (r.avatar && !r.avatar.used_portrait && r.avatar.id){
+    banner += `<div class="warnbanner">形象：选择了形象资产，但没能用上（可能没上传照片）。当前只有背景画面。</div>`;
+  }
+
+  $('result').innerHTML = `
+    <div class="result">
+      <div>
+        ${banner}
+        <video src="${v}" poster="${cover}" controls preload="metadata"></video>
+        <div class="meta-line">时长 ${r.duration_s ?? '?'}s · ${esc(r.topic||'')}</div>
+        <div class="btns">
+          <button class="ghost" id="btn-reveal">打开运行目录</button>
+        </div>
+      </div>
+      <div>
+        ${cover ? `<img class="cover" src="${cover}" alt="封面">` : ''}
+        <label>标题候选（点击复制）</label>
+        <div class="chips">${(r.titles||[]).map(t =>
+          `<div class="chip copyable">${esc(t)}</div>`).join('') || '<span class="ver">无</span>'}</div>
+        <label>话题标签（点击复制全部）</label>
+        <div class="chips" id="tagbox">${(r.tags||[]).map(t =>
+          `<div class="chip tag">#${esc(t)}</div>`).join('') || '<span class="ver">无</span>'}</div>
+        <label>视频简介</label>
+        <textarea readonly style="min-height:70px">${esc(r.description||'')}</textarea>
+      </div>
+    </div>`;
+  $('result').querySelectorAll('.chip.copyable').forEach(el => el.onclick = () => copyText(el));
+  const tagbox = $('tagbox');
+  if (tagbox) tagbox.onclick = () => copyText(tagbox);
+  const revealBtn = $('btn-reveal');
+  if (revealBtn) revealBtn.onclick = () => reveal(runId);
+}
+
+function copyText(el){
+  const text = el.innerText.trim();
+  navigator.clipboard?.writeText(text).then(()=>toast('已复制：' + text.slice(0,20)), ()=>toast('复制失败'));
+}
+async function reveal(runId){
+  const r = await fetch('/api/reveal', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({run_id: runId})}).then(x=>x.json());
+  toast(r.error || '已打开目录');
+}
+
+/* ================================================================ 历史 */
+async function loadRuns(){
+  const r = await fetch('/api/runs').then(x=>x.json());
+  renderRuns(r.runs || []);
+}
+function renderRuns(runs){
+  if (!runs.length){ $('runs').innerHTML = '<div class="empty">还没有运行记录</div>'; return; }
+  $('runs').innerHTML = runs.map(x => `
+    <div class="runitem" data-run="${esc(x.run_id)}">
+      <span class="rid" title="${esc(x.run_id)}">${esc(x.topic || x.run_id)}</span>
+      <span class="st">${x.failed ? '✕' : (x.video ? (x.duration_s ?? '?') + 's' : '…')}</span>
+      <span class="runops">
+        ${x.has_partial ? `<button class="ghost" data-fragments="${esc(x.run_id)}">片段</button>` : ''}
+        ${x.can_resume ? `<button class="primary" data-continue="${esc(x.run_id)}">继续</button>` : ''}
+      </span>
+    </div>`).join('');
+  $('runs').querySelectorAll('.runitem').forEach(el =>
+    el.onclick = () => openRun(el.dataset.run));
+  $('runs').querySelectorAll('[data-fragments]').forEach(btn => btn.onclick = ev => {
+    ev.stopPropagation();
+    window.location.href = '/fragments?run_id=' + encodeURIComponent(btn.dataset.fragments);
+  });
+  $('runs').querySelectorAll('[data-continue]').forEach(btn => btn.onclick = ev => {
+    ev.stopPropagation();
+    continueRun(btn.dataset.continue);
+  });
+}
+async function openRun(runId){
+  const r = await fetch('/api/result?run_id=' + encodeURIComponent(runId)).then(x=>x.json());
+  if (r.error) return toast(r.error);
+  RUN_ID = runId; $('runid').textContent = runId;
+  VIEWING_HISTORY = !r.running;
+  setMode();
+  if ((r.result||{}).flow_status === 'failed'){
+    showFailure(r.error || r.result.error || '生成失败', [], '生成失败', runId, r.result);
+  } else {
+    renderResult(r.result, runId);
+  }
+  if (r.running) attach(runId);
+  else renderNodes(Object.fromEntries((r.result.steps||[]).map(s => [s.name, s.status])));
+  // 流程跑停在闸门上时，回看也要能把审批按钮调出来
+  if (r.gate && r.gate.gate) showGate(runId, r.gate.gate, r.payload || r.gate.payload);
+  else hideGate();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ================================================================ 设置 */
+let REC_CATALOG = {voice: [], video: []};
+let PRESETS = [];
+let EDIT_PROVIDER_ID = '';
+let SETTINGS_PROVIDERS = [];
+
+async function loadSettings(){
+  try {
+    const r = await fetch('/api/settings/recommend').then(x => x.json());
+    REC_CATALOG = r.catalog || {voice: [], video: []};
+    PRESETS = r.presets || [];
+    SETTINGS_PROVIDERS = r.providers || [];
+    renderProviderList(SETTINGS_PROVIDERS);
+    fillPresetOptions();
+  } catch (e) { /* 设置页打不开不影响创作 */ }
+}
+
+function fillPresetOptions(){
+  const kind = $('sp_kind').value;
+  // 用途由预设自己声明（后端 PRESET_KINDS）。以前这里硬编码了一份数字人名单，
+  // 加一家预设就要改前端 —— 和 option_names 踩过的是同一个坑。
+  const list = PRESETS.filter(p => (p.kind || 'avatar') === kind);
+  $('sp_preset').innerHTML = list.length
+    ? list.map(p => `<option value="${esc(p.name)}">${esc(p.label)}</option>`).join('')
+    : '<option value="">（这个用途还没有预设）</option>';
+  applyPresetDefaults();
+  updatePresetHint();
+}
+
+function currentPreset(){
+  return PRESETS.find(p => p.name === $('sp_preset').value) || {};
+}
+
+function configuredEndpoint(config={}){
+  if (config.base_url || config.url || config.submit_url){
+    return String(config.base_url || config.url || config.submit_url);
+  }
+  const submit = config.submit;
+  return submit && typeof submit === 'object' ? String(submit.url || '') : '';
+}
+
+function renderModelOptions(config={}){
+  const p = currentPreset();
+  const models = Array.isArray(p.models) ? p.models : [];
+  const selected = String(config.model || p.default_model || '');
+  const selectedIsKnown = models.some(model => String(model.id || '') === selected);
+  let options = models.map(model => {
+    const id = String(model.id || '');
+    const label = String(model.label || id);
+    const text = label === id ? label : `${label}（${id}）`;
+    return `<option value="${esc(id)}">${esc(text)}</option>`;
+  });
+  if (selected && !selectedIsKnown && !p.editable_model){
+    options.push(`<option value="${esc(selected)}">当前配置（${esc(selected)}）</option>`);
+  }
+  if (p.editable_model){
+    options.push('<option value="__custom__">自定义模型 ID</option>');
+  }
+  if (!options.length){
+    options.push('<option value="">此接口不需要模型 ID</option>');
+  }
+  $('sp_model').innerHTML = options.join('');
+  const useCustom = p.editable_model && (!selected || !selectedIsKnown);
+  $('sp_model').value = useCustom ? '__custom__' : selected;
+  if (!$('sp_model').value && models.length) $('sp_model').selectedIndex = 0;
+  const custom = p.editable_model && $('sp_model').value === '__custom__';
+  $('sp_model_custom').classList.toggle('hidden', !custom);
+  $('sp_model_custom').value = custom ? selected : '';
+}
+
+function selectedModelId(){
+  return $('sp_model').value === '__custom__'
+    ? $('sp_model_custom').value.trim()
+    : $('sp_model').value.trim();
+}
+
+function applyPresetDefaults(config={}){
+  const p = currentPreset();
+  renderPresetFields(config);
+  $('sp_label').readOnly = !p.editable_label;
+  $('sp_label').value = p.editable_label
+    ? String(config.label || $('sp_label').value || p.label || '')
+    : String(p.label || '');
+
+  const endpointEditable = p.editable_endpoint === true;
+  $('sp_base_url').readOnly = !endpointEditable;
+  $('sp_base_url').value = endpointEditable ? configuredEndpoint(config) : String(p.endpoint || '');
+  $('sp_base_url_hint').textContent = endpointEditable
+    ? '自建或兼容接口可修改地址。'
+    : '官方固定接口，已自动填写，无需修改。';
+  renderModelOptions(config);
+}
+
+function renderPresetFields(values={}){
+  const fields = currentPreset().fields || [];
+  $('sp_extra_fields').innerHTML = fields.map(field => {
+    const name = String(field.name || '');
+    if (!name) return '';
+    const value = values[name] == null ? '' : String(values[name]);
+    return `<label>${esc(field.label || name)}${field.required ? ' *' : ''}</label>
+      <input type="text" data-provider-field="${esc(name)}"
+        data-required="${field.required ? '1' : '0'}"
+        value="${esc(value)}" placeholder="${esc(field.placeholder || '')}">
+      ${field.hint ? `<div class="hint">${esc(field.hint)}</div>` : ''}`;
+  }).join('');
+}
+
+function updatePresetHint(){
+  const p = currentPreset();
+  if (!p.name){ $('sp_preset_hint').textContent = ''; return; }
+  const cap = p.capability
+    ? `<div style="margin-top:5px">能力：<b>${esc(p.capability)}</b>`
+      + (p.verified ? '' : ' <span class="tag warn">未实测</span>')
+      + `</div>`
+    : '';
+  $('sp_preset_hint').innerHTML = (p.homepage
+    ? `<b>${esc(p.label)}</b> · <a href="${esc(p.homepage)}" target="_blank">官网</a>`
+    : '通用接口模板')
+    + cap;
+}
+
+function renderProviderList(list){
+  const groups = [
+    {kind:'voice', list:'providerListVoice', count:'voiceProviderCount', empty:'尚未配置语音提供商'},
+    {kind:'avatar', list:'providerListAvatar', count:'avatarProviderCount', empty:'尚未配置数字人提供商'},
+  ];
+  for (const group of groups){
+    const items = list.filter(p => p.kind === group.kind);
+    const ready = items.filter(p => p.available === true).length;
+    $(group.count).textContent = `${items.length} 家${ready ? ` · ${ready} 可用` : ''}`;
+    $(group.list).innerHTML = items.length ? items.map(p => {
+      const enabled = p.enabled !== false;
+      const usable = enabled && p.available === true;
+      const status = !enabled ? '已停用' : usable ? '已配置' : (p.availability_detail || '待配置');
+      const badge = usable ? 'ready' : 'empty';
+      const preset = PRESETS.find(x => x.name === p.preset);
+      const modelId = String((p.config && p.config.model) || p.model || '');
+      const model = preset && (preset.models || []).find(x => String(x.id || '') === modelId);
+      const meta = model
+        ? `${model.label}${model.label === modelId ? '' : ` · ${modelId}`}`
+        : (modelId || (preset ? preset.label : (p.preset || '自定义接口')));
+      const keyUrl = preset && (preset.key_url || preset.homepage);
+      const keyLink = enabled && !p.has_key && keyUrl
+        ? `<a class="provider-key-link" href="${esc(keyUrl)}" target="_blank" rel="noopener noreferrer">去官网申请 Key</a>`
+        : '';
+      return `
+        <div class="provider-item">
+          <div class="provider-item-main">
+            <div class="provider-item-name">
+              <b title="${esc(p.label)}">${esc(p.label)}</b>
+              <span class="badge ${badge}">${status}</span>
+            </div>
+            <div class="provider-item-meta" title="${esc(meta)}">${esc(meta)}</div>
+            ${keyLink}
+            <div class="provider-test-status" data-test-status="${esc(p.id)}" role="status"></div>
+          </div>
+          <div class="ops">
+            <button class="ghost tiny" data-test="${esc(p.id)}">测试连通</button>
+            <button class="ghost tiny" data-edit="${esc(p.id)}">编辑</button>
+            <button class="ghost tiny" data-del="${esc(p.id)}">删除</button>
+          </div>
+        </div>`;
+    }).join('') : `<div class="provider-empty">${group.empty}</div>`;
+  }
+  $('panel-settings').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    const provider = list.find(x => x.id === b.dataset.del);
+    if (!provider || !confirm(`确定删除“${provider.label}”吗？`)) return;
+    const r = await fetch('/api/settings/providers?id=' + encodeURIComponent(b.dataset.del),
+      {method:'DELETE'}).then(x => x.json());
+    if (r.error) return toast(r.error);
+    if (EDIT_PROVIDER_ID === b.dataset.del) clearProviderForm();
+    toast('已删除'); loadSettings(); refreshBootstrap();
+  });
+  $('panel-settings').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+    const p = list.find(x => x.id === b.dataset.edit);
+    if (!p) return;
+    openProviderEditor(p.kind, p);
+  });
+  $('panel-settings').querySelectorAll('[data-test]').forEach(b => b.onclick = () => {
+    testProviderConnection(b.dataset.test, b);
+  });
+}
+
+async function testProviderConnection(id, button){
+  const status = $('panel-settings').querySelector(`[data-test-status="${CSS.escape(id)}"]`);
+  button.disabled = true;
+  button.textContent = '测试中…';
+  if (status){ status.className = 'provider-test-status'; status.textContent = '正在连接接口…'; }
+  let payload;
+  try {
+    const response = await fetch('/api/settings/providers/test', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})
+    });
+    payload = await response.json();
+  } catch (error) {
+    payload = {error:`请求失败：${error.message || error}`};
+  } finally {
+    button.disabled = false;
+    button.textContent = '测试连通';
+  }
+  if (!status) return;
+  if (payload.error){
+    status.className = 'provider-test-status error';
+    status.textContent = payload.error;
+    return;
+  }
+  const result = payload.result || {};
+  const suffix = result.status_code
+    ? ` · HTTP ${result.status_code}${result.latency_ms ? ` · ${result.latency_ms}ms` : ''}` : '';
+  status.className = `provider-test-status ${result.level || (result.ok ? 'success' : 'error')}`;
+  status.textContent = `${result.ok ? '✓ ' : '✕ '}${result.message || '测试完成'}${suffix}`;
+}
+
+function openProviderEditor(kind, provider=null){
+  EDIT_PROVIDER_ID = provider ? provider.id : '';
+  $('sp_kind').value = kind;
+  $('sp_status').textContent = '';
+  $('sp_label').value = '';
+  $('sp_model').innerHTML = '';
+  $('sp_model_custom').value = '';
+  $('sp_model_custom').classList.add('hidden');
+  $('sp_base_url').value = '';
+  $('sp_api_key').value = '';
+  $('sp_api_key').placeholder = provider && provider.has_key ? '已保存，留空即不修改' : '粘贴密钥';
+  fillPresetOptions();
+  if (provider){
+    $('sp_preset').value = provider.preset || '';
+    applyPresetDefaults({...provider.config, label:provider.label});
+    updatePresetHint();
+  }
+  const noun = kind === 'voice' ? '语音提供商' : '数字人提供商';
+  $('providerEditorTitle').textContent = `${provider ? '编辑' : '添加'}${noun}`;
+  $('providerEditorSub').textContent = provider ? provider.label : '选择模板并填写 API Key';
+  $('spAdvanced').open = Boolean($('sp_base_url').value || selectedModelId());
+  $('providerEditor').classList.remove('hidden');
+  $('providerEditor').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+async function saveProvider(){
+  const customConfig = {};
+  let missingField = '';
+  $('sp_extra_fields').querySelectorAll('[data-provider-field]').forEach(input => {
+    const value = input.value.trim();
+    customConfig[input.dataset.providerField] = value;
+    if (!value && input.dataset.required === '1' && !missingField){
+      missingField = input.previousElementSibling?.textContent?.replace(/\s*\*\s*$/, '') || '必填项';
+    }
+  });
+  const payload = {
+    id: EDIT_PROVIDER_ID || '',
+    kind: $('sp_kind').value,
+    preset: $('sp_preset').value,
+    label: $('sp_label').value.trim(),
+    model: selectedModelId(),
+    base_url: currentPreset().editable_endpoint ? $('sp_base_url').value.trim() : '',
+    api_key: $('sp_api_key').value.trim(),
+    config: customConfig,
+    enabled: (SETTINGS_PROVIDERS.find(p => p.id === EDIT_PROVIDER_ID) || {}).enabled !== false,
+  };
+  if (!payload.label){ toast('给这个提供商起个名字'); return; }
+  if (missingField){ toast(`请填写${missingField}`); return; }
+  $('btnSaveProvider').disabled = true;
+  $('btnSaveProvider').textContent = '保存中…';
+  let r;
+  try {
+    r = await fetch('/api/settings/providers', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)}).then(x => x.json());
+  } catch (error) {
+    r = {error: `保存失败：${error.message || error}`};
+  } finally {
+    $('btnSaveProvider').disabled = false;
+    $('btnSaveProvider').textContent = '保存提供商';
+  }
+  if (r.error){ $('sp_status').innerHTML = `<span style="color:var(--err)">${esc(r.error)}</span>`; return; }
+  $('sp_api_key').value = '';
+  clearProviderForm();
+  loadSettings();
+  refreshBootstrap();
+  toast('已保存');
+}
+
+function clearProviderForm(){
+  EDIT_PROVIDER_ID = '';
+  $('sp_label').value = '';
+  $('sp_model').innerHTML = '';
+  $('sp_model_custom').value = '';
+  $('sp_model_custom').classList.add('hidden');
+  $('sp_base_url').value = '';
+  $('sp_api_key').value = '';
+  $('sp_status').textContent = '';
+  $('sp_extra_fields').innerHTML = '';
+  $('providerEditor').classList.add('hidden');
+}
+
+/** 推荐提供商窗口：音频 / 视频各一个。 */
+function showRecommend(kind){
+  const list = REC_CATALOG[kind] || [];
+  $('recTitle').textContent = kind === 'voice'
+    ? '语音克隆推荐与 Key 申请' : '数字人视频推荐与 Key 申请';
+  $('recIntro').innerHTML = kind === 'voice'
+    ? '选择支持<b>音色克隆</b>的服务。先去官网申请 Key，再使用对应模板。'
+    : '选择能由音频直接驱动口型、表情和动作的服务。先去官网申请 Key，再使用对应模板。';
+  $('recList').innerHTML = list.map(p => {
+    const keyUrl = p.key_url || p.homepage || '';
+    return `
+    <div class="recbox">
+      <div class="rechead">
+        <b>${esc(p.name)}</b>
+        ${(p.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join('')}
+      </div>
+      <div class="hint">${esc(p.why)}</div>
+      <div class="hint">价格：${esc(p.price||'见官网')}
+        ${p.verified ? '　<span style="color:var(--ok)">接口形状已核对</span>'
+                     : '　<span style="color:var(--warn)">未实测，字段需按文档核对</span>'}</div>
+      <div class="hint">接口：${esc(p.api_shape||'')}</div>
+      <div class="jumplinks">
+        ${keyUrl ? `<a class="ghost tiny action-link" href="${esc(keyUrl)}" target="_blank" rel="noopener noreferrer">去官网申请 Key</a>` : ''}
+        ${p.docs ? `<a class="ghost tiny action-link" href="${esc(p.docs)}" target="_blank" rel="noopener noreferrer">查看接口文档</a>` : ''}
+        ${p.preset ? `<button class="ghost tiny" onclick="pickPreset('${esc(kind)}','${esc(p.preset)}')">使用此模板</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  $('recCard').classList.remove('hidden');
+  $('recCard').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function pickPreset(kind, preset){
+  openProviderEditor(kind === 'video' ? 'avatar' : kind);
+  $('sp_preset').value = preset;
+  applyPresetDefaults();
+  updatePresetHint();
+  $('recCard').classList.add('hidden');
+  $('providerEditor').scrollIntoView({behavior:'smooth', block:'nearest'});
+  toast('已选择模板');
+}
+
+async function refreshBootstrap(){
+  const data = await fetch('/api/bootstrap').then(x => x.json());
+  OPTIONS = data.options || {};
+  CURRENT = data.current || CURRENT;
+  OPTION_INFO = data.option_info || {};
+  RECOMMENDED = data.recommended || {};
+  renderProviderSelects();
+  simplifyProviders();
+  const voiceReady = usableEngines('voice').length > 0;
+  const avatarReady = usableEngines('avatar').length > 0;
+  $('pills').innerHTML = voiceReady && avatarReady
+    ? '<span class="pill on">工作流就绪</span>'
+    : '<span class="pill">需要配置</span>';
+  updateHints();
+}
+
+$('btn-run').onclick = doRun;
+$('btn-plan').onclick = doPlan;
+$('btnVoicePreview').onclick = voicePreview;
+$('btnRecVoice').onclick = () => showRecommend('voice');
+$('btnRecVideo').onclick = () => showRecommend('video');
+$('btnAddVoice').onclick = () => openProviderEditor('voice');
+$('btnAddAvatar').onclick = () => openProviderEditor('avatar');
+$('btnRecClose').onclick = () => $('recCard').classList.add('hidden');
+$('btnSaveProvider').onclick = saveProvider;
+$('btnClearProvider').onclick = () => clearProviderForm();
+$('btnCloseProvider').onclick = () => clearProviderForm();
+$('sp_preset').onchange = () => { applyPresetDefaults(); updatePresetHint(); };
+$('sp_model').onchange = () => {
+  const custom = $('sp_model').value === '__custom__';
+  $('sp_model_custom').classList.toggle('hidden', !custom);
+  if (custom) $('sp_model_custom').focus();
+};
+$('btnApprove').onclick = () => decide('approve');
+$('btnReject').onclick = () => decide('reject');
+$('btnRecommended').onclick = () => {
+  const applied = [];
+  for (const [key, el] of [['script','p_script'],['voice','p_voice'],
+                           ['visuals','p_visuals'],['avatar','p_avatar']]){
+    const want = RECOMMENDED['steps.' + key + '.provider'];
+    if (want && [...$(el).options].some(o => o.value === want)){ $(el).value = want; applied.push(want); }
+  }
+  updateHints();
+  toast(applied.length ? '已切到：' + applied.join(' / ') : '没有可推荐的配置');
+};
+boot();
+</script>
+</body>
+</html>

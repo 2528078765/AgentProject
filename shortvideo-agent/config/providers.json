@@ -1,0 +1,198 @@
+{
+  "providers": [
+    {
+      "id": "voice-cosyvoice2",
+      "kind": "voice",
+      "label": "硅基流动",
+      "preset": "siliconflow",
+      "enabled": true,
+      "config": {
+        "url": "https://api.siliconflow.cn/v1/audio/speech",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer {{api_key}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "{{model}}",
+          "input": "{{text}}",
+          "voice": "{{voice_id}}",
+          "response_format": "wav"
+        },
+        "model": "FunAudioLLM/CosyVoice2-0.5B",
+        "audio_path": "",
+        "audio_encoding": "raw",
+        "timeout_s": 300,
+        "request_delay_s": 0.8,
+        "clone": {
+          "enabled": true,
+          "max_audio_s": 25,
+          "upload": {
+            "url": "https://api.siliconflow.cn/v1/uploads/audio/voice",
+            "mode": "multipart",
+            "headers": {
+              "Authorization": "Bearer {{api_key}}"
+            },
+            "fields": {
+              "model": "{{model}}",
+              "customName": "{{voice_name}}",
+              "text": "{{prompt_text}}"
+            },
+            "file_field": "file",
+            "filename": "ref.wav",
+            "file_ctype": "audio/wav",
+            "id_path": "uri"
+          },
+          "url": ""
+        }
+      },
+      "base_url": "https://api.siliconflow.cn/v1",
+      "model": "FunAudioLLM/CosyVoice2-0.5B"
+    },
+    {
+      "id": "avatar-dashscope-wan-s2v",
+      "kind": "avatar",
+      "label": "阿里云百炼",
+      "preset": "dashscope_s2v",
+      "enabled": true,
+      "config": {
+        "workspace_id": "",
+        "model": "wan2.2-s2v",
+        "connection_test": {
+          "url": "https://dashscope.aliyuncs.com/api/v1/uploads?action=getPolicy&model={{model}}",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer {{api_key}}"
+          },
+          "success_statuses": [
+            200
+          ]
+        },
+        "upload": {
+          "image": {
+            "mode": "dashscope_oss",
+            "policy_url": "https://dashscope.aliyuncs.com/api/v1/uploads?action=getPolicy&model={{model}}",
+            "filename": "autovid.jpg",
+            "content_type": "image/jpeg"
+          },
+          "audio": {
+            "mode": "dashscope_oss",
+            "policy_url": "https://dashscope.aliyuncs.com/api/v1/uploads?action=getPolicy&model={{model}}",
+            "filename": "autovid.wav",
+            "content_type": "audio/wav"
+          }
+        },
+        "submit": {
+          "url": "https://{{workspace_id}}.cn-beijing.maas.aliyuncs.com/api/v1/services/aigc/image2video/video-synthesis",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer {{api_key}}",
+            "Content-Type": "application/json",
+            "X-DashScope-Async": "enable",
+            "X-DashScope-OssResourceResolve": "enable"
+          },
+          "body": {
+            "model": "{{model}}",
+            "input": {
+              "image_url": "{{image_url}}",
+              "audio_url": "{{audio_url}}"
+            },
+            "parameters": {
+              "resolution": "480P"
+            }
+          },
+          "job_id_path": "output.task_id"
+        },
+        "query": {
+          "url": "https://{{workspace_id}}.cn-beijing.maas.aliyuncs.com/api/v1/tasks/{{job_id}}",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer {{api_key}}"
+          },
+          "status_path": "output.task_status",
+          "done_values": [
+            "SUCCEEDED"
+          ],
+          "failed_values": [
+            "FAILED",
+            "UNKNOWN",
+            "CANCELED"
+          ],
+          "result_path": "output.results.video_url"
+        },
+        "use_scene_photo": true,
+        "timeout_s": 1800,
+        "poll_interval_s": 10,
+        "merge_max_s": 19,
+        "capabilities": {
+          "verified": false,
+          "source": "阿里云百炼 Wan2.2-S2V 官方 API 文档",
+          "output": {
+            "width": 480,
+            "height": 854,
+            "aspect": "9:16",
+            "note": "480P 档，由图片和音频共同驱动口型、表情与动作"
+          },
+          "image": {
+            "min_side": 400,
+            "formats": [
+              "jpeg",
+              "png",
+              "webp"
+            ],
+            "note": "建议单人、腰部以上、正脸清晰、双手完整入镜"
+          },
+          "audio": {
+            "max_s": 19,
+            "max_mb": 15,
+            "formats": [
+              "wav",
+              "mp3"
+            ],
+            "note": "单次小于 20 秒，长口播由工作流自动拆分"
+          }
+        },
+        "failure_signatures": [
+          {
+            "name": "dashscope_quota",
+            "when": {
+              "status_in": [
+                400,
+                402,
+                403
+              ],
+              "body_has": "Arrearage"
+            },
+            "kind": "fatal",
+            "label": "阿里云百炼余额或免费额度不足",
+            "hint": "前往百炼控制台查看免费额度或充值。"
+          },
+          {
+            "name": "dashscope_auth",
+            "when": {
+              "status_in": [
+                401
+              ]
+            },
+            "kind": "fatal",
+            "label": "阿里云百炼 API Key 无效",
+            "hint": "检查 Key 是否属于北京地域和当前业务空间。"
+          },
+          {
+            "name": "dashscope_permission",
+            "when": {
+              "status_in": [
+                403
+              ]
+            },
+            "kind": "fatal",
+            "label": "阿里云百炼权限被拒",
+            "hint": "检查业务空间 ID、地域和模型调用权限。"
+          }
+        ]
+      },
+      "base_url": "",
+      "model": ""
+    }
+  ]
+}
